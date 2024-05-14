@@ -1,0 +1,6 @@
+name=Propane Station
+id=PropaneStation
+description=A mod that dynamically adds propane stations around the map
+poster=poster.png
+tiledef=propanestation 8808
+pack=propanestation

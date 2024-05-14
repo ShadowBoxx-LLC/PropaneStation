@@ -1,0 +1,5 @@
+ContextMenu_ES = {
+	ContextMenu_PropaneStation			= "Estación de servicio de gas",
+	ContextMenu_RefillPropaneTank 	= "Llene el tanque de propano",
+	ContextMenu_AddGas				= "Rellenando",
+}

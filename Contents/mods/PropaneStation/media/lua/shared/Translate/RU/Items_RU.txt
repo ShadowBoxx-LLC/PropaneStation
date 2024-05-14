@@ -1,0 +1,4 @@
+Items_RU = {
+
+	DisplayName_Propane_Refill_Station = "Газовая станция",
+}
