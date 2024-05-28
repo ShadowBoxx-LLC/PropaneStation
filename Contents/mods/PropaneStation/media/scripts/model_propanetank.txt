@@ -2,7 +2,7 @@ module Base
 {
   model StaticPropaneTank
   {
-    mesh = WorldItems/Clothing/PropaneTank,
+    mesh = WorldItems/Clothing/StaticPropaneTank,
     texture = WorldItems/PropaneTank,
     scale = 0.25,
   }

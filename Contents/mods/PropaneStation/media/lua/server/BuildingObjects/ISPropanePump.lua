@@ -1,22 +1,22 @@
 ISPropanePump = ISBuildingObject:derive("ISPropanePump");
 function ISPropanePump:new(sprite)
-  local object = {};
-  setmetatable(object, self);
-  self.__index = self;
-  object:init();
-  object:setSprite(sprite);
-  object.name = "PropanePump";
-  return object;
+  local object = {}
+  setmetatable(object, self)
+  self.__index = self
+  object:init()
+  object:setSprite(sprite)
+  object.name = "PropanePump"
+  return object
 end
 
 function ISPropanePump:create(x, y, z, sprite)
-  self.fuel = 1000 - ZombRand(300);
+  self.fuel = 1000 - ZombRand(300)
   
-  local cell = getWorld():getCell();
-  self.square = cell:getGridSquare(x, y, z);
+  local cell = getWorld():getCell()
+  self.square = cell:getGridSquare(x, y, z)
   self.partSquare = {x, y, z}
   
-  self:createIsoThumpable(self.square, sprite, self);
+  self:createIsoThumpable(self.square, sprite)
 end
 
 function ISPropanePump:createIsoThumpable(square, sprite)
@@ -37,7 +37,7 @@ function ISPropanePump:createIsoThumpable(square, sprite)
   thumpable:getModData()["partSquare"] = self.partSquare
   thumpable:setSpecialTooltip(true)
 
-  -- sent our object to the server
+  -- send our object to the server
   thumpable:transmitCompleteItemToServer()
 
   -- make our addition trigger the OnObjectAdded event so other modders can detect it

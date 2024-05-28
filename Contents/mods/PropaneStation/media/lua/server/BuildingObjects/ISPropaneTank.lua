@@ -1,47 +1,65 @@
 ISPropaneTank = ISBuildingObject:derive("ISPropaneTank");
-function ISPropaneTank:new(sprite1, sprite2, northSprite1, northSprite2)
-  local object = {};
-  setmetatable(object, self);
-  self.__index = self;
-  object:init();
-  object:setSprite(sprite1);
-  object:setNorthSprite(northSprite1);
-  object.sprite2 = sprite2;
-  object.northSprite2 = northSprite2;
-  object.name = "PropaneTank";
-  return object;
+function ISPropaneTank:new(sprites)
+  local object = {}
+  setmetatable(object, self)
+  self.__index = self
+  object:init()
+  object:setSprite(sprites.A)
+  object.name = "PropaneTank"
+  return object
 end
 
-function ISPropaneTank:create(x, y, z, north, sprite)
-  
+function ISPropaneTank:getSquareCoords(square)
+  if not square then return end
+  return square:getX(), square:getY(), square:getZ()
+end
+
+function ISPropaneTank:create(x, y, z, direction, sprites)
   local cell = getWorld():getCell();
-  self.sq = cell:getGridSquare(x, y, z);
-  local square1 = {x, y, z}
+  local squares = {}
 
-  local spriteAName = self.northSprite2;
-
-  local xa = x;
-  local ya = y;
-
-  -- we get the x and y of our next tile (depend if we're placing the furniture north or not)
-  if north then
-    ya = ya - 1;
+  squares.A = {x = x, y = y, z = z}
+  if direction == "EastWest" then
+    squares.B = {x = x -1, y = y, z = z}
+    squares.C = {x = x -2, y = y, z = z}
+    squares.D = {x = x -3, y = y, z = z}
+    squares.E = {x = x, y = y + 1, z = z}
+    squares.F = {x = x - 1, y = y + 1, z = z}
+    squares.G = {x = x -2, y = y + 1, z = z}
+    squares.H = {x = x -3, y = y + 1, z = z}
   else
-    -- if we're not north we also change our sprite
-    spriteAName = self.sprite2;
-    xa = xa - 1;
+    squares.B = {x = x, y = y -1, z = z}
+    squares.C = {x = x, y = y -2, z = z}
+    squares.D = {x = x, y = y -3, z = z}
+    squares.E = {x = x + 1, y = y, z = z}
+    squares.F = {x = x + 1, y = y -1, z = z}
+    squares.G = {x = x + 1, y = y -2, z = z}
+    squares.H = {x = x + 1, y = y - 3, z = z}
   end
-  
-  local squareA = cell:getGridSquare(xa, ya, z);
-  local square2 = {xa, ya, z}
-  
-  self:createIsoThumpable(self.sq, north, sprite, square2, self);
-  self:createIsoThumpable(squareA, north, spriteAName, square1, self);
+
+  self.partSquare = {x, y, z}
+  for part, coords in pairs(squares) do
+    local part_x, part_y, part_z = coords.x, coords.y, coords.z
+    print("Propane Station: Square coordinates are " .. tostring(part_x) .. "," .. tostring(part_y) .. "," .. tostring(part_z))
+    local square = cell:getGridSquare(part_x, part_y, part_z)
+    if square == nil and getWorld():isValidSquare(part_x, part_y, part_z) then
+      print("Propane Station: Square was nil, so we have to force it to load")
+---@diagnostic disable-next-line: param-type-mismatch
+      square = IsoGridSquare.new(cell, nil, part_x, part_y, part_z)
+      cell:ConnectNewSquare(square, false)
+    end
+    print("Propane Station: Spawn details - part: " .. tostring(part) .. " at square: " .. tostring(square))
+    self:createIsoThumpable(square, sprites[part])
+  end
 end
 
-function ISPropaneTank:createIsoThumpable(square, north, sprite, squareA)
+function ISPropaneTank:createIsoThumpable(square, sprite)
+  if square == nil then
+    print("PropaneTank: We received an invalid square in ISPropaneTank:createIsoThumpable")
+  end
+
   -- instance new IsoThumpableObject
-  local thumpable = IsoThumpable.new(getCell(), square, sprite, north, self)
+  local thumpable = IsoThumpable.new(getCell(), square, sprite, false, self)
 
   -- name of the item for the tooltip
   buildUtil.setInfo(thumpable, self)
@@ -52,12 +70,10 @@ function ISPropaneTank:createIsoThumpable(square, north, sprite, squareA)
   -- place object in square
   square:AddSpecialObject(thumpable)
 
-  -- propane station specific ModData
-  thumpable:getModData()["fuelAmount"] = self.fuel
-  thumpable:getModData()["partSquare"] = squareA
+  thumpable:getModData()["partSquare"] = self.partSquare
   thumpable:setSpecialTooltip(true)
 
-  -- sent our object to the server
+  -- send our object to the server
   thumpable:transmitCompleteItemToServer()
 
   -- make our addition trigger the OnObjectAdded event so other modders can detect it

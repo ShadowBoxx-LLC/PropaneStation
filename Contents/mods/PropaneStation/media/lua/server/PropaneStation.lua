@@ -1,8 +1,5 @@
 if isClient() then return end
 
-require "BuildingObjects/ISPropanePump"
-require "BuildingObjects/ISPropaneTank"
-
 local PropaneTank = ScriptManager.instance:getItem("Base.PropaneTank");
 if PropaneTank then
   PropaneTank:DoParam("KeepOnDeplete = true")
@@ -17,7 +14,7 @@ PropaneStation = {}
 PropaneStation.TileSets = {}
 
 -- Tanks are large rendered containers near the Pumps. They are primarily just decorative.
-PropaneStation.TileSets.Tanks = {} 
+PropaneStation.TileSets.Tanks = {}
 
 -- Tanks are split up into EastWest tanks, and SouthNorth tanks based on the direction the tank runs
 
@@ -94,13 +91,40 @@ PropaneStation.TileSets.Pumps.EastFace.Blue = tilePrefix .. "64"
 PropaneStation.SpawnList =
 {
   riverside_industrial = {
+    location = "Riverside Industrial",
     tank = {
       coords = {5411, 5868, 0},
-      direction = "EastWest",
+      direction = "SouthNorth",
       color = "Blue"
     },
     pump = {
       coords = {5413, 5865, 0},
+      facing = "EastFace",
+      color = "Blue"
+    }
+  },
+  riverside_township = {
+    location = "Riverside Township",
+    tank = {
+      coords = {6100, 5330, 0},
+      direction = "EastWest",
+      color = "Blue"
+    },
+    pump = {
+      coords = {6101, 5331, 0 },
+      facing = "EastFace",
+      color = "Blue"
+    }
+  },
+  westpoint_south = {
+    location = "Westpoint South",
+    tank = {
+      coords = {12070, 7154, 0},
+      direction = "EastWest",
+      color = "Blue"
+    },
+    pump = {
+      coords = {12071, 7155, 0 },
       facing = "EastFace",
       color = "Blue"
     }
@@ -152,24 +176,69 @@ PropaneStation.SpawnList =
 }
 ]]--
 
+-- Adds a delay so that we can make sure squares are loaded before we try to place isoObjects
+local delaySpawn = function(milliseconds)
+  local start = os.clock() * 1000
+  while (os.clock() * 1000) - start < milliseconds do
+      coroutine.yield()
+  end
+end
+
+function PropaneStation.CreatePump(x, y, z, sprite)
+  delaySpawn(10)
+  local propanestation_pump = ISPropanePump:new(sprite)
+  propanestation_pump:create(x, y, z, sprite)
+end
+
+function PropaneStation.CreateTank(x, y, z, direction, sprites)
+  delaySpawn(10)
+  local propanestation_tank = ISPropaneTank:new(sprites)
+  propanestation_tank:create(x, y, z, direction, sprites)
+end
+
 function PropaneStation.AddPropaneStation(square)
-  if not square:getModData().AddPropaneStation then
-    square:getModData().AddPropaneStation = true;
-    
-    for location, data in pairs(PropaneStation.SpawnList) do
-      local tank_x = data.tank.coords[1]
-      local tank_y = data.tank.coords[2]
-      local tank_z = data.tank.coords[3]
-      local pump_x = data.pump.coords[1]
-      local pump_y = data.pump.coords[2]
-      local pump_z = data.pump.coords[3]
+  local propaneStationHasRan = square:getModData().AddPropaneStationRan
+  local propaneStationHasReset = square:getModData().AddPropaneStationReset
+  local propaneStationShouldReset = false
+  if propaneStationHasRan and propaneStationShouldReset and not propaneStationHasReset then
+    square:getModData().AddPropaneStationRan = false
+    square:getModData().AddPropaneStationReset = false
+  elseif not propaneStationShouldReset and propaneStationHasReset then
+    square:getModData().AddPropaneStationReset = false
+  end
+  if not square:getModData().AddPropaneStationRan then
+    square:getModData().AddPropaneStationRan = true
+    for _,data in pairs(PropaneStation.SpawnList) do
+      local location = data.location
+      local tank_x, tank_y, tank_z = data.tank.coords[1], data.tank.coords[2], data.tank.coords[3]
+      local pump_x, pump_y, pump_z = data.pump.coords[1], data.pump.coords[2], data.pump.coords[3]
       local tank_square = getCell():getGridSquare(tank_x, tank_y, tank_z)
       local pump_square = getCell():getGridSquare(pump_x, pump_y, pump_z)
-      
-      if pump_square == square then
-        print("Propane Station: Spawning Propane Station at " .. location .. "location")
-        local propanepump = ISPropanePump:new(PropaneStation.TileSets.Pumps[data.pump.facing][data.pump.color])
-        propanepump:create(pump_x, pump_y, pump_z, PropaneStation.TileSets.Pumps[data.pump.facing][data.pump.color])
+      local tank_square_coords = tank_x .. "," .. tank_y .. "," .. tank_z
+      local pump_square_coords = pump_x .. "," .. pump_y .. "," .. pump_z
+
+      if tank_square == square and tank_square_coords ~= pump_square_coords then
+        local tank_direction = data.tank.direction
+        local tank_color = data.tank.color
+        print("Propane Station: Spawning Propane Tank starting at " .. tank_square_coords .. " for location: " .. location .. " running " .. tank_direction)
+        local asyncCreateTank = coroutine.create(PropaneStation.CreateTank)
+        while coroutine.status(asyncCreateTank) ~= "dead" do
+          coroutine.resume(asyncCreateTank, tank_x, tank_y, tank_z, tank_direction, PropaneStation.TileSets.Tanks[tank_direction][tank_color])
+        end
+      end
+
+      if pump_square == square and pump_square_coords ~= tank_square_coords then
+        local pump_facing = data.pump.facing
+        local pump_color = data.pump.color
+        print("Propane Station: Spawning Propane Pump at " .. pump_square_coords .. " for location: " .. location)
+        local asyncCreatePump = coroutine.create(PropaneStation.CreatePump)
+        while coroutine.status(asyncCreatePump) ~= "dead" do
+          coroutine.resume(asyncCreatePump, pump_x, pump_y, pump_z, PropaneStation.TileSets.Pumps[pump_facing][pump_color])
+        end
+      end
+
+      if pump_square_coords == tank_square_coords then
+        print("Propane Station: Attempting to spawn Propane Tank and Pump at same location is forbidden: tank " .. tank_square_coords .. ", pump " .. pump_square_coords)
       end
     end
   end

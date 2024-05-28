@@ -1,5 +1,6 @@
 -- here we have to decorate doFillFuelMenu and return nothing if we are a Propane Pump so we can't take petrol from it
 local doFillFuelMenuBase = ISWorldObjectContextMenu.doFillFuelMenu
+---@diagnostic disable-next-line: duplicate-set-field
 ISWorldObjectContextMenu.doFillFuelMenu = function(isoObject, player, context)
   --if isoObject:getName() ~= "PropanePump" then
   if not CPropaneStationSystem.instance:isValidIsoObject(isoObject) then
@@ -7,8 +8,21 @@ ISWorldObjectContextMenu.doFillFuelMenu = function(isoObject, player, context)
   end
 end
 
+local createMenuBase = ISWorldObjectContextMenu.createMenu
+---@diagnostic disable-next-line: duplicate-set-field
+ISWorldObjectContextMenu.createMenu = function(player, worldobjects, x, y, test)
+  local context = createMenuBase(player, worldobjects, x, y, test)
+  for _,worldobject in ipairs(worldobjects) do
+    if CPropaneStationSystem.instance:isValidIsoObject(worldobject) and getCore():getDebug() then
+---@diagnostic disable-next-line: undefined-global
+      context:removeOptionByName(getText("ContextMenu_PumpFuelAmount") .. ": " .. tostring(haveFuel:getPipedFuelAmount()))
+    end
+  end
+  return context
+end
+
 PropaneStation_Menu={}
---[[PropaneStation_Menu.Option = function(player, context, worldobjects, test)
+PropaneStation_Menu.pumpInfo = function(player, context, worldobjects, test)
 	if test and ISWorldObjectContextMenu.Test then return true end
 	
 	local PropanePump = nil
@@ -18,24 +32,19 @@ PropaneStation_Menu={}
 			PropanePump = worldobject
 		end
 	end
+
+  if not PropanePump then
+    return
+  end
 	
-	if PropanePump and getSpecificPlayer(player):DistToSquared(PropanePump:getX() + 0.5, PropanePump:getY() + 0.5) < 2 * 2 then
-		local option = context:addOption(getText("ContextMenu_PropaneStation"), worldobjects, nil)
-		local tooltip = PropaneStation_Menu.addToolTip()
-		tooltip:setName(getText("ContextMenu_PropaneStation"))
-		tooltip.description = getText("IGUI_RemainingPercent", round(PropanePump:getModData()["fuelAmount"] / 10))
-		option.toolTip = tooltip
+	if PropanePump:getPipedFuelAmount() > 0 and getCore():getDebug() then
+---@diagnostic disable-next-line: undefined-global
+		local pumpInfo = context:addOption(getText("ContextMenu_PropaneStationAmount") .. ": " .. tostring(haveFuel:getPipedFuelAmount()), worldobjects, nil)
+    pumpInfo.iconTexture = getTexture("media/ui/BugIcon.png")
 	end
-end]]--
+end
 
---Events.OnPreFillWorldObjectContextMenu.Add(PropaneStation_Menu.Option)
-
---[[function PropaneStation_Menu.addToolTip()
-  local toolTip = PropaneStation_ToolTip:new()
-  toolTip:initialise()
-  toolTip:setVisible(false)
-  return toolTip
-end]]--
+Events.OnPreFillWorldObjectContextMenu.Add(PropaneStation_Menu.pumpInfo)
 
 PropaneStation_Menu.doMenu = function(player, context, worldobjects, test)
 	if test and ISWorldObjectContextMenu.Test then return true end
@@ -46,6 +55,7 @@ PropaneStation_Menu.doMenu = function(player, context, worldobjects, test)
   local allContainersOfType = {}
 	local PropanePump
   local PropaneTankItem
+---@diagnostic disable-next-line: param-type-mismatch
   local fillInto = playerInv:getAllEvalRecurse(function(item)
     if item:getType() == "PropaneTank" and not item:isBroken() and item:getUsedDelta() < 1 then
       return true
